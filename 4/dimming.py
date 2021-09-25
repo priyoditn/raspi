@@ -17,7 +17,7 @@ sensor_stabilise_time = 0.5
 pwm_frequency = 50	#	hertz. this is theoretical max
 dimming_interval = 5
 brightening_interval = 2
-luminosity_steps = 10
+luminosity_steps = 100
 
 GPIO.setmode(GPIO.BOARD)
 GPIO.setup(led_pin, GPIO.OUT)
@@ -57,8 +57,21 @@ def main():
 			dim_led(pwm, brightness, prev_brightness)
 
 	except KeyboardInterrupt:
-		GPIO.cleanup()
+		pass
+	
+	GPIO.cleanup()
 
+
+
+def normalise_brightness(level):
+	if level > 100:
+		level = 100
+	elif level == 0:
+		level = 10
+	elif level < 0:
+		level = 0
+		
+	return level
 
 
 def dim_led(pwm, brightness, prev_brightness):
@@ -66,22 +79,35 @@ def dim_led(pwm, brightness, prev_brightness):
 		time.sleep(sleep_time_high)
 		return
 	
+	brightness = normalise_brightness(brightness)
+	prev_brightness = normalise_brightness(prev_brightness)
+	
 	transition_interval = brightening_interval
 	
 	if brightness < prev_brightness:
 		transition_interval = dimming_interval
 		
 	delta = brightness - prev_brightness
-	step = int(delta * 1.0 / luminosity_steps)
 	stay_interval = transition_interval * 1.0 / luminosity_steps
-
-		
+	step = int(delta * 1.0 / luminosity_steps)
+	
+	if step == 0:
+		if delta < 0:
+			step = -1
+		else:
+			step = 1
+		stay_interval = step * 1.0 / delta
+	
+	brightness += step
+	
+	if brightness > 100:
+		brightness = 101
+	
 	for i in range(prev_brightness, brightness, step):
 		pwm.ChangeDutyCycle(i)
 		time.sleep(stay_interval)
 		
 	
-
 
 def get_distance():
 	#	Initialise distance and pin
