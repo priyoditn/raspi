@@ -10,14 +10,14 @@ ultrasonic_echo_pin = 37
 
 ir_key = 'IR'
 ultrasonic_key = 'Ultrasonic'
-half_of_speed_of_sound = 34300 / 2
-ultrasonic_trigger_interval = 0.00001
-far_away_threshold = 200
+half_of_speed_of_sound = 343000 / 2 # mm/sec
+ultrasonic_trigger_interval = 0.00001 # sec
+far_away_threshold = 200 # mm
 sensor_stabilise_time = 0.5
-pwm_frequency = 50	#	IN HERTZ. this is theoretical max
+pwm_frequency = 50	#	hertz. this is theoretical max
 dimming_interval = 5
 brightening_interval = 2
-luminosity_steps = 50
+luminosity_steps = 10
 
 GPIO.setmode(GPIO.BOARD)
 GPIO.setup(led_pin, GPIO.OUT)
@@ -72,7 +72,7 @@ def dim_led(pwm, brightness, prev_brightness):
 		transition_interval = dimming_interval
 		
 	delta = brightness - prev_brightness
-	step = int(delta / luminosity_steps)
+	step = int(delta * 1.0 / luminosity_steps)
 	stay_interval = transition_interval * 1.0 / luminosity_steps
 
 		
