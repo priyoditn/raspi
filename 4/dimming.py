@@ -77,7 +77,7 @@ def dim_led(pwm, brightness, prev_brightness):
 
 		
 	for i in range(prev_brightness, brightness, step):
-		pwm.ChangeDutyCycle(brightness)
+		pwm.ChangeDutyCycle(i)
 		time.sleep(stay_interval)
 		
 	
