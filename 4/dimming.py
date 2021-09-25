@@ -73,7 +73,7 @@ def dim_led(pwm, brightness, prev_brightness):
 		
 	delta = brightness - prev_brightness
 	step = int(delta / luminosity_steps)
-	stay_interval = transition_interval / luminosity_steps
+	stay_interval = transition_interval * 1.0 / luminosity_steps
 
 		
 	for i in range(prev_brightness, brightness, step):
@@ -123,7 +123,7 @@ def compute_led_intensity(inputs):
 
 
 def call_model(inputs):
-	brightness_level = 30
+	brightness_level = 10
 	
 	if ultrasonic_key not in inputs:
 		inputs[ultrasonic_key] = False
