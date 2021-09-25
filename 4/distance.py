@@ -4,11 +4,11 @@ import time
 sleep_time = 0.5
 
 led_pin = 12
-ir_pin = 16
+ultrasonic_echo_pin = 40
+ultrasonic_trig_pin = 38
 
 GPIO.setmode(GPIO.BOARD)
 GPIO.setup(led_pin, GPIO.OUT)
-GPIO.setup(ir_pin, GPIO.IN)
 
 def led_blink(sleep_time):
 	GPIO.output(led_pin, True)
@@ -18,11 +18,7 @@ def led_blink(sleep_time):
 
 try:
 	while True:
-		if GPIO.input(ir_pin):
-			led_blink(sleep_time)
-		else:
-			GPIO.output(led_pin, True)
-			time.sleep(sleep_time)
+		led_blink(sleep_time)
 
 except KeyboardInterrupt:
 	GPIO.cleanup()
