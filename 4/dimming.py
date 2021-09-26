@@ -1,5 +1,7 @@
 import RPi.GPIO as GPIO
 import time
+from datetime import date, datetime
+from pathlib import Path
 
 sleep_time_high = 0.5
 
@@ -25,6 +27,8 @@ GPIO.setup(ir_pin, GPIO.IN)
 GPIO.setup(ultrasonic_echo_pin, GPIO.IN)
 GPIO.setup(ultrasonic_trig_pin, GPIO.OUT)
 
+log_file_loc = "/home/pi/log/"
+
 
 
 
@@ -33,8 +37,12 @@ def main():
 	pwm = GPIO.PWM(led_pin, pwm_frequency)
 	pwm.start(0)
 	brightness = 100
+	logfile = None
 	
 	try:
+		logfile = initialise_log()
+		print("Timestamp\tIR Status\tUltrasonic Status\tTemperature\tHumidity\tHeadcount\tBrightness Level")
+	
 		while True:
 			ir_output = GPIO.input(ir_pin)
 			ir_status = 'Object detected'
@@ -48,8 +56,15 @@ def main():
 						, ultrasonic_key: ultrasonic_data}
 			
 			output = compute_led_intensity(sensor_data)
+			
+			headcount = 0
+			
+			if output == 100:
+				headcount = 1
 
-			print(f"IR Sensor: {ir_status}\tUltrasonic Sensor: {ultrasonic_data}\tOutput: {output}")
+			print(f"{datetime.now().strftime('%H:%M:%S')}\t{ir_output}\t{ultrasonic_data}\t21.6\t70.5\t{headcount}\t{output}")
+			
+			logfile.write(f"{datetime.now().strftime('%H:%M:%S')}\t{ir_output}\t{ultrasonic_data}\t21.6\t70.5\t{headcount}\t{output}\n")
 			
 			prev_brightness = brightness
 			brightness = output
@@ -58,10 +73,26 @@ def main():
 
 	except KeyboardInterrupt:
 		pass
+	finally:
+		GPIO.cleanup()
+		logfile.close()
+
+
+
+def initialise_log():
+	today = date.today()
+	d = today.strftime("%Y-%m-%d")
+	logfileName = log_file_loc + d + ".log"
+	f = Path(logfileName)
+	fileExists = f.exists()
 	
-	GPIO.cleanup()
-
-
+	logfile = open(logfileName, "a")
+	
+	if not fileExists:
+		logfile.write("Timestamp\tIR Status\tUltrasonic Status\tTemperature\tHumidity\tHeadcount\tBrightness Level\n")
+		
+	return logfile
+	
 
 def normalise_brightness(level):
 	if level > 100:
