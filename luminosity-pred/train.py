@@ -5,6 +5,7 @@ from sklearn.metrics import mean_squared_error
 import numpy as np
 import argparse
 import datetime
+import pickle
 import csv
 
 X, y = [], []
@@ -27,9 +28,14 @@ def train(outfile):
     x_train, x_test,y_train,y_test = train_test_split(X,y,test_size =0.2)
     reg = LinearRegression().fit(x_train, y_train)
     preds = reg.predict(x_test)
-    score = r2_score(y_test, preds)
+    # R-Squared is a statistical measure of fit that indicates how much 
+    # variation of a dependent variable is explained by the independent 
+    # variable(s) in a regression model.
+    r2score = r2_score(y_test, preds)
     root_mean_sqerror = np.sqrt(mean_squared_error(y_test, preds))
-    print(score, root_mean_sqerror)
+    print("R squared score: ", r2score)
+    pickle.dump(reg, open(outfile, 'wb'))
+    print("Training complete and the model is stored at %s" % outfile)
 
 
 if __name__ == "__main__":
