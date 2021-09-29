@@ -14,8 +14,7 @@ def infer(light_luminosity, time_of_day, proximity):
     prediction = lr_model.predict(np.array([np.array([float(light_luminosity), 
                                                       float(time_of_day.replace(":","")), 
                                                       float(proximity)])]))
-    print(prediction)
-    return prediction
+    return prediction.tolist()[0]
 
 
 if __name__ == "__main__":
@@ -24,5 +23,5 @@ if __name__ == "__main__":
     args = parser.parse_args()
     print(args.model)
     load_model(args.model)
-    infer(36, "07:00", 1)
+    print(infer(36, "07:00", 1))
 

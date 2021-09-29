@@ -25,7 +25,7 @@ def load_dataset(infile):
 
 
 def train(outfile):
-    x_train, x_test,y_train,y_test = train_test_split(X,y,test_size =0.2)
+    x_train, x_test,y_train,y_test = train_test_split(X,y,test_size=0.2)
     reg = LinearRegression().fit(x_train, y_train)
     preds = reg.predict(x_test)
     # R-Squared is a statistical measure of fit that indicates how much 
