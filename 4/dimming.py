@@ -1,5 +1,6 @@
 import RPi.GPIO as GPIO
 import time
+import pred
 from datetime import date, datetime
 from pathlib import Path
 
@@ -26,6 +27,9 @@ GPIO.setup(led_pin, GPIO.OUT)
 GPIO.setup(ir_pin, GPIO.IN)
 GPIO.setup(ultrasonic_echo_pin, GPIO.IN)
 GPIO.setup(ultrasonic_trig_pin, GPIO.OUT)
+
+# loading model for prediction
+pred.load_model("models/lrmodel_v1.pkl")
 
 log_file_loc = "/home/pi/log/"
 
@@ -188,10 +192,12 @@ def call_model(inputs):
 	if ir_key not in inputs:
 			inputs[ir_key] = False
 
+    # proximity detection
 	detected = (inputs[ultrasonic_key] or inputs[ir_key])
-	
-	if detected:
-		brightness_level = 100
+    current_time = datetime.now().strftime("%H:%M")
+    brightness_level = pred.infer(brightness_level, current_time, detected)
+    #	if detected:
+    #		brightness_level = 100
 
 	return brightness_level
 
