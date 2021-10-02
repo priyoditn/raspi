@@ -11,10 +11,12 @@ ir_pin = 16
 ultrasonic_trig_pin = 38
 ultrasonic_echo_pin = 37
 internal_ldr_pin = 32
+external_ldr_pin = 29
 
 ir_key = 'IR'
 ultrasonic_key = 'Ultrasonic'
 internal_ldr_key = 'internal LDR'
+external_ldr_key = 'external LDR'
 half_of_speed_of_sound = 343000 / 2 # mm/sec
 ultrasonic_trigger_interval = 0.00001 # sec
 far_away_threshold = 200 # mm
@@ -58,11 +60,13 @@ def main():
 
 			ultrasonic_data = get_distance()
 			
-			ldr_data = ldr()
+			internal_ldr_data = ldr(internal_ldr_pin)
+			external_ldr_data = ldr(external_ldr_pin)
 
 			sensor_data = {ir_key : ir_output
 						, ultrasonic_key : ultrasonic_data
-						, internal_ldr_key : ldr_data}
+						, internal_ldr_key : internal_ldr_data
+						, external_ldr_key : external_ldr_data}
 			
 			output = compute_led_intensity(sensor_data)
 			
@@ -71,9 +75,9 @@ def main():
 			if output == 100:
 				headcount = 1
 
-			print(f"{datetime.now().strftime('%H:%M:%S')}\t{ir_output}\t{ultrasonic_data}\t{ldr_data}\t10\t21.6\t70.5\t{headcount}\t{output}")
+			print(f"{datetime.now().strftime('%H:%M:%S')}\t{ir_output}\t{ultrasonic_data}\t{internal_ldr_data}\t{external_ldr_data}\t21.6\t70.5\t{headcount}\t{output}")
 			
-			logfile.write(f"{datetime.now().strftime('%H:%M:%S')}\t{ir_output}\t{ultrasonic_data}\t{ldr_data}\t10\t21.6\t70.5\t{headcount}\t{output}\n")
+			logfile.write(f"{datetime.now().strftime('%H:%M:%S')}\t{ir_output}\t{ultrasonic_data}\t{internal_ldr_data}\t{external_ldr_data}\t21.6\t70.5\t{headcount}\t{output}\n")
 			
 			prev_brightness = brightness
 			brightness = output
@@ -88,16 +92,16 @@ def main():
 
 
 
-def ldr():
-	GPIO.setup(internal_ldr_pin, GPIO.OUT)
-	GPIO.output(internal_ldr_pin, GPIO.LOW)
+def ldr(ldr_pin):
+	GPIO.setup(ldr_pin, GPIO.OUT)
+	GPIO.output(ldr_pin, GPIO.LOW)
 	time.sleep(0.1)
 	
-	GPIO.setup(internal_ldr_pin, GPIO.IN)
+	GPIO.setup(ldr_pin, GPIO.IN)
 	
 	t0 = time.time_ns()
 	
-	while (GPIO.input(internal_ldr_pin) == GPIO.LOW):
+	while (GPIO.input(ldr_pin) == GPIO.LOW):
 		pass
 	
 	t1 = time.time_ns()
@@ -129,7 +133,7 @@ def initialise_log():
 	logfile = open(logfileName, "a")
 	
 	if not fileExists:
-		logfile.write("Timestamp\tIR Status\tUltrasonic Status\tTemperature\tHumidity\tHeadcount\tBrightness Level\n")
+		logfile.write("Timestamp\tIR Status\tUltrasonic Status\tInternal Incident Radiation\tExternal Incident Radiation\tTemperature\tHumidity\tHeadcount\tBrightness Level\n")
 		
 	return logfile
 	
