@@ -2,6 +2,7 @@ import RPi.GPIO as GPIO
 import time
 from datetime import date, datetime
 from pathlib import Path
+import math
 
 sleep_time_high = 0.5
 
@@ -9,23 +10,28 @@ led_pin = 12
 ir_pin = 16
 ultrasonic_trig_pin = 38
 ultrasonic_echo_pin = 37
+internal_ldr_pin = 32
 
 ir_key = 'IR'
 ultrasonic_key = 'Ultrasonic'
+internal_ldr_key = 'internal LDR'
 half_of_speed_of_sound = 343000 / 2 # mm/sec
 ultrasonic_trigger_interval = 0.00001 # sec
 far_away_threshold = 200 # mm
 sensor_stabilise_time = 0.5
-pwm_frequency = 50	#	hertz. this is theoretical max
+pwm_frequency = 1000	#	hertz.
 dimming_interval = 5
 brightening_interval = 2
 luminosity_steps = 100
+ldr_max = 700
+ldr_min = 90
 
 GPIO.setmode(GPIO.BOARD)
 GPIO.setup(led_pin, GPIO.OUT)
 GPIO.setup(ir_pin, GPIO.IN)
 GPIO.setup(ultrasonic_echo_pin, GPIO.IN)
 GPIO.setup(ultrasonic_trig_pin, GPIO.OUT)
+# LDR pin setup occurs inside the ldr() method
 
 log_file_loc = "/home/pi/log/"
 
@@ -41,7 +47,7 @@ def main():
 	
 	try:
 		logfile = initialise_log()
-		print("Timestamp\tIR Status\tUltrasonic Status\tTemperature\tHumidity\tHeadcount\tBrightness Level")
+		print("Timestamp\tIR Status\tUltrasonic Status\tInternal Incident Radiation\tExternal Incident Radiation\tTemperature\tHumidity\tHeadcount\tBrightness Level")
 	
 		while True:
 			ir_output = GPIO.input(ir_pin)
@@ -51,9 +57,12 @@ def main():
 				ir_status = 'Surroundings clear'
 
 			ultrasonic_data = get_distance()
+			
+			ldr_data = ldr()
 
-			sensor_data = {ir_key:ir_output
-						, ultrasonic_key: ultrasonic_data}
+			sensor_data = {ir_key : ir_output
+						, ultrasonic_key : ultrasonic_data
+						, internal_ldr_key : ldr_data}
 			
 			output = compute_led_intensity(sensor_data)
 			
@@ -62,9 +71,9 @@ def main():
 			if output == 100:
 				headcount = 1
 
-			print(f"{datetime.now().strftime('%H:%M:%S')}\t{ir_output}\t{ultrasonic_data}\t21.6\t70.5\t{headcount}\t{output}")
+			print(f"{datetime.now().strftime('%H:%M:%S')}\t{ir_output}\t{ultrasonic_data}\t{ldr_data}\t10\t21.6\t70.5\t{headcount}\t{output}")
 			
-			logfile.write(f"{datetime.now().strftime('%H:%M:%S')}\t{ir_output}\t{ultrasonic_data}\t21.6\t70.5\t{headcount}\t{output}\n")
+			logfile.write(f"{datetime.now().strftime('%H:%M:%S')}\t{ir_output}\t{ultrasonic_data}\t{ldr_data}\t10\t21.6\t70.5\t{headcount}\t{output}\n")
 			
 			prev_brightness = brightness
 			brightness = output
@@ -77,6 +86,37 @@ def main():
 		GPIO.cleanup()
 		logfile.close()
 
+
+
+def ldr():
+	GPIO.setup(internal_ldr_pin, GPIO.OUT)
+	GPIO.output(internal_ldr_pin, GPIO.LOW)
+	time.sleep(0.1)
+	
+	GPIO.setup(internal_ldr_pin, GPIO.IN)
+	
+	t0 = time.time_ns()
+	
+	while (GPIO.input(internal_ldr_pin) == GPIO.LOW):
+		pass
+	
+	t1 = time.time_ns()
+	
+	diff = math.log(t1 - t0)
+	diff = diff * diff
+	
+	scaled_value = ((diff - ldr_max) * 100) / (ldr_min - ldr_max)
+	
+	if scaled_value > 100:
+		scaled_value = 100
+	elif scaled_value < 25:
+		scaled_value = 25
+	
+	scaled_value = (scaled_value - 25) * 100 / (75)
+	scaled_value = round(scaled_value, 2)
+	
+	return scaled_value
+	
 
 
 def initialise_log():

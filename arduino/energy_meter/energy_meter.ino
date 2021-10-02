@@ -7,17 +7,18 @@ LiquidCrystal lcd(rs, en, d4, d5, d6, d7);
 float Voltage = 0.0;
 float Current = 0.0;
 float Power = 0.0;
+int Time = 0;
 
 void setup() 
 {
   lcd.begin(16, 2); 
   Serial.begin(9600);
 
-  lcd.print("     Nimesh + Arun    "); 
+  lcd.print("Nimesh and Arun"); 
   lcd.setCursor(0, 1);
-  lcd.print("    = Winners!   "); 
+  lcd.print("will rock you ~!");
 
-  delay(2000);
+  delay(3500);
   lcd.clear();
 
 }
@@ -34,16 +35,18 @@ void loop()
  Serial.println(Voltage);
  Serial.println(Current);
 
- Power = Voltage * Current;
+ Power += Voltage * Current;
 
  Serial.println(Power);
 
 
  lcd.setCursor(0, 0);
- lcd.print("V="); lcd.print(Voltage); 
+ lcd.print("V="); lcd.print(Voltage);
  lcd.print(" "); 
- lcd.print("I=");lcd.print(Current); 
+ lcd.print("I=");lcd.print(Current);
  lcd.setCursor(0, 1);
- lcd.print("P="); lcd.print(Power); 
+ lcd.print("E="); lcd.print(Power);
+ lcd.print(" ");
+ lcd.print("T="); lcd.print(Time++);
  delay(1000);
 }
