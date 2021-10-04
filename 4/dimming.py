@@ -3,6 +3,7 @@ import time
 import pred
 from datetime import date, datetime
 from pathlib import Path
+import math
 
 sleep_time_high = 0.5
 
@@ -10,23 +11,30 @@ led_pin = 12
 ir_pin = 16
 ultrasonic_trig_pin = 38
 ultrasonic_echo_pin = 37
+internal_ldr_pin = 32
+external_ldr_pin = 29
 
 ir_key = 'IR'
 ultrasonic_key = 'Ultrasonic'
+internal_ldr_key = 'internal LDR'
+external_ldr_key = 'external LDR'
 half_of_speed_of_sound = 343000 / 2 # mm/sec
 ultrasonic_trigger_interval = 0.00001 # sec
 far_away_threshold = 200 # mm
 sensor_stabilise_time = 0.5
-pwm_frequency = 50	#	hertz. this is theoretical max
+pwm_frequency = 1000	#	hertz.
 dimming_interval = 5
 brightening_interval = 2
 luminosity_steps = 100
+ldr_max = 700
+ldr_min = 90
 
 GPIO.setmode(GPIO.BOARD)
 GPIO.setup(led_pin, GPIO.OUT)
 GPIO.setup(ir_pin, GPIO.IN)
 GPIO.setup(ultrasonic_echo_pin, GPIO.IN)
 GPIO.setup(ultrasonic_trig_pin, GPIO.OUT)
+# LDR pin setup occurs inside the ldr() method
 
 # loading model for prediction
 pred.load_model("models/lrmodel_v1.pkl")
@@ -45,7 +53,7 @@ def main():
 	
 	try:
 		logfile = initialise_log()
-		print("Timestamp\tIR Status\tUltrasonic Status\tTemperature\tHumidity\tHeadcount\tBrightness Level")
+		print("Timestamp\tIR Status\tUltrasonic Status\tInternal Incident Radiation\tExternal Incident Radiation\tTemperature\tHumidity\tHeadcount\tBrightness Level")
 	
 		while True:
 			ir_output = GPIO.input(ir_pin)
@@ -55,9 +63,14 @@ def main():
 				ir_status = 'Surroundings clear'
 
 			ultrasonic_data = get_distance()
+			
+			internal_ldr_data = ldr(internal_ldr_pin)
+			external_ldr_data = ldr(external_ldr_pin)
 
-			sensor_data = {ir_key:ir_output
-						, ultrasonic_key: ultrasonic_data}
+			sensor_data = {ir_key : ir_output
+						, ultrasonic_key : ultrasonic_data
+						, internal_ldr_key : internal_ldr_data
+						, external_ldr_key : external_ldr_data}
 			
 			output = compute_led_intensity(sensor_data)
 			
@@ -66,9 +79,9 @@ def main():
 			if output == 100:
 				headcount = 1
 
-			print(f"{datetime.now().strftime('%H:%M:%S')}\t{ir_output}\t{ultrasonic_data}\t21.6\t70.5\t{headcount}\t{output}")
+			print(f"{datetime.now().strftime('%H:%M:%S')}\t{ir_output}\t{ultrasonic_data}\t{internal_ldr_data}\t{external_ldr_data}\t21.6\t70.5\t{headcount}\t{output}")
 			
-			logfile.write(f"{datetime.now().strftime('%H:%M:%S')}\t{ir_output}\t{ultrasonic_data}\t21.6\t70.5\t{headcount}\t{output}\n")
+			logfile.write(f"{datetime.now().strftime('%H:%M:%S')}\t{ir_output}\t{ultrasonic_data}\t{internal_ldr_data}\t{external_ldr_data}\t21.6\t70.5\t{headcount}\t{output}\n")
 			
 			prev_brightness = brightness
 			brightness = output
@@ -83,6 +96,37 @@ def main():
 
 
 
+def ldr(ldr_pin):
+	GPIO.setup(ldr_pin, GPIO.OUT)
+	GPIO.output(ldr_pin, GPIO.LOW)
+	time.sleep(0.1)
+	
+	GPIO.setup(ldr_pin, GPIO.IN)
+	
+	t0 = time.time_ns()
+	
+	while (GPIO.input(ldr_pin) == GPIO.LOW):
+		pass
+	
+	t1 = time.time_ns()
+	
+	diff = math.log(t1 - t0)
+	diff = diff * diff
+	
+	scaled_value = ((diff - ldr_max) * 100) / (ldr_min - ldr_max)
+	
+	if scaled_value > 100:
+		scaled_value = 100
+	elif scaled_value < 25:
+		scaled_value = 25
+	
+	scaled_value = (scaled_value - 25) * 100 / (75)
+	scaled_value = round(scaled_value, 2)
+	
+	return scaled_value
+	
+
+
 def initialise_log():
 	today = date.today()
 	d = today.strftime("%Y-%m-%d")
@@ -93,7 +137,7 @@ def initialise_log():
 	logfile = open(logfileName, "a")
 	
 	if not fileExists:
-		logfile.write("Timestamp\tIR Status\tUltrasonic Status\tTemperature\tHumidity\tHeadcount\tBrightness Level\n")
+		logfile.write("Timestamp\tIR Status\tUltrasonic Status\tInternal Incident Radiation\tExternal Incident Radiation\tTemperature\tHumidity\tHeadcount\tBrightness Level\n")
 		
 	return logfile
 	
@@ -182,7 +226,7 @@ def compute_led_intensity(inputs):
 	return brightness_level
 
 
-
+# TODO: @arunjeyapal: please add your model wrapper here. Please take a look at log_samples folder for preprocessing of data
 def call_model(inputs):
 	brightness_level = 10
 	
