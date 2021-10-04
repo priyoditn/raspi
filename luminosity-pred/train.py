@@ -17,8 +17,9 @@ def load_dataset(infile):
         for each_line in reader:
             X.append(np.array([
                 float(each_line["light luminosity"]), 
-                float(each_line["time of the day"].replace(":","")), 
-                float(each_line["proximity"])
+                float(each_line["IR Status"]),
+                float(each_line["Ultrasonic sensor status"]),
+                float(each_line["time of the day"].replace(":",""))
                 ]))
             y.append(each_line["predicted light luminosity"])
     X = np.array(X)

@@ -37,7 +37,7 @@ GPIO.setup(ultrasonic_trig_pin, GPIO.OUT)
 # LDR pin setup occurs inside the ldr() method
 
 # loading model for prediction
-pred.load_model("models/lrmodel_v2_trainset_v3.pkl")
+pred.load_model("models/lrmodel_v3_trainset_v4.pkl")
 
 log_file_loc = "/home/pi/log/"
 
@@ -217,29 +217,34 @@ def compute_led_intensity(inputs):
     if ir_key in inputs:
         inputs[ir_key] = not inputs[ir_key]
 
-    # we require boolean for now
-    if ultrasonic_key in inputs:
-        inputs[ultrasonic_key] = inputs[ultrasonic_key] <= far_away_threshold
+    # When the ultrasonic_key sensor doesn't work, we set the default value to be 25000 mm
+    # This is set to 25000 mm assuming no object is detected by the sensor
+    if ultrasonic_key not in inputs:
+        inputs[ultrasonic_key] = 25000
 
     brightness_level = call_model(inputs)
 
     return brightness_level
 
 
-# TODO: @arunjeyapal: please add your model wrapper here. Please take a look at log_samples folder for preprocessing of data
 def call_model(inputs):
     brightness_level = 10
-    
-    if ultrasonic_key not in inputs:
-        inputs[ultrasonic_key] = False
 
     if ir_key not in inputs:
-            inputs[ir_key] = False
+        inputs[ir_key] = 1 # set to no object detection by default when the IR sensor stops working
+                           # which means that the light intensity would remain low when human pass through
+                           # triggering a suspicion that something has failed
+    
+    # detected = (inputs[ultrasonic_key] or inputs[ir_key])
+    if internal_ldr_key not in inputs:
+        inputs[internal_ldr_key] = 50 # assume the brightness level at 50 when the ldr sensor stops working
 
-    # proximity detection
-    detected = (inputs[ultrasonic_key] or inputs[ir_key])
+
+
     current_time = datetime.now().strftime("%H:%M")
-    brightness_level = pred.infer(brightness_level, current_time, detected)
+
+    brightness_level = pred.infer(inputs[internal_ldr_key], inputs[ir_key], 
+                                  inputs[ultrasonic_key], current_time)
     #   if detected:
     #       brightness_level = 100
 
