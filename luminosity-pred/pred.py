@@ -23,5 +23,5 @@ if __name__ == "__main__":
     args = parser.parse_args()
     print(args.model)
     load_model(args.model)
-    print(infer(36, "07:00", 1))
+    print(infer(36, "07:00", 0))
 
