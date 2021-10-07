@@ -9,7 +9,7 @@ thermometer = DHT11(pin = 40)
 while True:
 	try:
 		result = thermometer.read()
-
+		
 		if result.is_valid():
 			print("Temperature: %-3.1f C" % result.temperature)
 			print("Humidity: %-3.1f %%" % result.humidity)
