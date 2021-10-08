@@ -1,4 +1,6 @@
-#!/usr/bin/python3
+#sudo apt-get update --fix-missing && sudo apt-get install python3-rpi.gpio
+# warning: lowering step_sleep may run into the mechanical limitation of how quick your motor can move
+
 import RPi.GPIO as GPIO
 import time
  
@@ -6,8 +8,7 @@ in1 = 11
 in2 = 12
 in3 = 13
 in4 = 15
-#sudo apt-get update --fix-missing && sudo apt-get install python3-rpi.gpio
-# careful lowering this, at some point you run into the mechanical limitation of how quick your motor can move
+
 step_sleep = 0.004 #	ms
 
 degrees = 90
