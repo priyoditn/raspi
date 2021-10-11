@@ -1,9 +1,12 @@
+import dht11
 import RPi.GPIO as GPIO
 import time
 import pred
 from datetime import date, datetime
 from pathlib import Path
 import math
+    
+
 
 sleep_time_high = 0.5
 
@@ -13,11 +16,15 @@ ultrasonic_trig_pin = 38
 ultrasonic_echo_pin = 37
 internal_ldr_pin = 32
 external_ldr_pin = 29
+dht11_pin = 40
 
 ir_key = 'IR'
 ultrasonic_key = 'Ultrasonic'
 internal_ldr_key = 'internal LDR'
 external_ldr_key = 'external LDR'
+temperature_key = 'DHT 11 temperature'
+humidity_key = 'DHT 11 humidity'
+
 half_of_speed_of_sound = 343000 / 2 # mm/sec
 ultrasonic_trigger_interval = 0.00001 # sec
 far_away_threshold = 200 # mm
@@ -50,11 +57,15 @@ def main():
     pwm.start(0)
     brightness = 100
     logfile = None
+    dht11_sensor = dht11.DHT11(pin = dht11_pin)
+    prev_temperature = 26.8
+    prev_humidity = 78.0
+        
     
     try:
         logfile = initialise_log()
         print("Timestamp\tIR Status\tUltrasonic Status\tInternal Incident Radiation\tExternal Incident Radiation\tTemperature\tHumidity\tHeadcount\tBrightness Level")
-    
+        
         while True:
             ir_output = GPIO.input(ir_pin)
             ir_status = 'Object detected'
@@ -66,11 +77,24 @@ def main():
             
             internal_ldr_data = ldr(internal_ldr_pin)
             external_ldr_data = ldr(external_ldr_pin)
+            
+            temperature, humidity = measure_temperature_humidity(dht11_sensor)
+            
+            if temperature == 0:
+                temperature = prev_temperature
+            
+            if humidity == 0:
+                humidity = prev_humidity
+            
+            prev_temperature = temperature
+            prev_humidity = humidity
 
             sensor_data = {ir_key : ir_output
                         , ultrasonic_key : ultrasonic_data
                         , internal_ldr_key : internal_ldr_data
-                        , external_ldr_key : external_ldr_data}
+                        , external_ldr_key : external_ldr_data
+                        , temperature_key: temperature
+                        , humidity_key: humidity}
             
             output = compute_led_intensity(sensor_data)
             
@@ -79,9 +103,9 @@ def main():
             if output == 100:
                 headcount = 1
 
-            print(f"{datetime.now().strftime('%H:%M:%S')}\t{ir_output}\t{ultrasonic_data}\t{internal_ldr_data}\t{external_ldr_data}\t21.6\t70.5\t{headcount}\t{output}")
+            print(f"{datetime.now().strftime('%H:%M:%S')}\t{ir_output}\t{ultrasonic_data}\t{internal_ldr_data}\t{external_ldr_data}\t{temperature}\t{humidity}\t{headcount}\t{output}")
             
-            logfile.write(f"{datetime.now().strftime('%H:%M:%S')}\t{ir_output}\t{ultrasonic_data}\t{internal_ldr_data}\t{external_ldr_data}\t21.6\t70.5\t{headcount}\t{output}\n")
+            logfile.write(f"{datetime.now().strftime('%H:%M:%S')}\t{ir_output}\t{ultrasonic_data}\t{internal_ldr_data}\t{external_ldr_data}\t{temperature}\t{humidity}\t{headcount}\t{output}\n")
             
             prev_brightness = brightness
             brightness = output
@@ -95,6 +119,12 @@ def main():
         logfile.close()
 
 
+# install adafruit lib before running it
+def measure_temperature_humidity(dht11_sensor):
+    result = dht11_sensor.read()
+    humidity, temperature = result.humidity, result.temperature
+    
+    return temperature, humidity
 
 def ldr(ldr_pin):
     GPIO.setup(ldr_pin, GPIO.OUT)
