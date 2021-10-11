@@ -2,14 +2,17 @@ import numpy as np
 import pickle
 import argparse
 
+
 lr_model = None
 
 # load model
+@profile
 def load_model(model_path):
     global lr_model
     lr_model = pickle.load(open(model_path, 'rb'))
 
 
+@profile
 def infer(light_luminosity, ir_status, ultra_sonic_status, time_of_day):
     prediction = lr_model.predict(np.array([np.array([float(light_luminosity), 
                                                       float(ir_status),
