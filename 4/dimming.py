@@ -35,8 +35,8 @@ half_of_speed_of_sound = 343000 / 2 # mm/sec
 ultrasonic_trigger_interval = 0.00001 # sec
 far_away_threshold = 200 # mm
 sensor_stabilise_time = 0.5
-min_ai_luminosity = 75
-max_ai_luminosity = 95
+min_ai_luminosity = 80
+max_ai_luminosity = 90
 pwm_frequency = 1000	#   hertz.
 dimming_interval = 5
 brightening_interval = 2
@@ -102,7 +102,7 @@ def main():
 	prev_humidity = 78.0
 	
 	reset_motor()
-		
+	
 	
 	try:
 		logfile = initialise_log()
@@ -126,7 +126,7 @@ def main():
 			
 			prev_temperature = temperature
 			prev_humidity = humidity
-
+			
 			sensor_data = {ir_key : ir_output
 						, ultrasonic_key : ultrasonic_data
 						, internal_ldr_key : internal_ldr_data
@@ -140,16 +140,16 @@ def main():
 			
 			if output == 100:
 				headcount = 1
-
+			
 			print(f"{datetime.now().strftime('%H:%M:%S')}\t{ir_output}\t{ultrasonic_data}\t{internal_ldr_data}\t{external_ldr_data}\t{temperature}\t{humidity}\t{headcount}\t{output}")
 			
 			logfile.write(f"{datetime.now().strftime('%H:%M:%S')}\t{ir_output}\t{ultrasonic_data}\t{internal_ldr_data}\t{external_ldr_data}\t{temperature}\t{humidity}\t{headcount}\t{output}\n")
 			
 			prev_brightness = brightness
 			brightness = output
-
+			
 			dim_led(pwm, brightness, prev_brightness)
-
+			
 	except KeyboardInterrupt:
 		pass
 	finally:
