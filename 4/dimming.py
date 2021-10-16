@@ -186,7 +186,7 @@ def compute_intensity_and_postprocess(sensor_data):
 	
 	if output > 100:
 		output = 100
-	elif: output < 0:
+	elif output < 0:
 		output = 0
 	
 	return output
