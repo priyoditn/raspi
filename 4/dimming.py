@@ -1,13 +1,20 @@
 import dht11
 import RPi.GPIO as GPIO
 import time
+import pred
 from datetime import date, datetime
 from pathlib import Path
 import math
-	
+
 
 
 sleep_time_high = 0.5
+
+#	motor pins
+motor_in1 = 11
+motor_in2 = 13
+motor_in3 = 15
+motor_in4 = 35
 
 led_pin = 12
 ir_pin = 16
@@ -28,12 +35,32 @@ half_of_speed_of_sound = 343000 / 2 # mm/sec
 ultrasonic_trigger_interval = 0.00001 # sec
 far_away_threshold = 200 # mm
 sensor_stabilise_time = 0.5
-pwm_frequency = 1000	#	hertz.
+min_ai_luminosity = 75
+max_ai_luminosity = 95
+pwm_frequency = 1000	#   hertz.
 dimming_interval = 5
 brightening_interval = 2
 luminosity_steps = 100
 ldr_max = 700
 ldr_min = 90
+
+#	--------------------
+#	motor params
+step_sleep = 0.004 #	ms
+
+# For motor 28BYJ-48 and driver ULN2003
+step_sequence = [
+					[1,0,0,1],
+					[1,0,0,0],
+					[1,1,0,0],
+					[0,1,0,0],
+					[0,1,1,0],
+					[0,0,1,0],
+					[0,0,1,1],
+					[0,0,0,1]
+				]
+
+#	--------------------
 
 GPIO.setmode(GPIO.BOARD)
 GPIO.setup(led_pin, GPIO.OUT)
@@ -42,8 +69,25 @@ GPIO.setup(ultrasonic_echo_pin, GPIO.IN)
 GPIO.setup(ultrasonic_trig_pin, GPIO.OUT)
 # LDR pin setup occurs inside the ldr() method
 
+
+GPIO.setup( motor_in1, GPIO.OUT )
+GPIO.setup( motor_in2, GPIO.OUT )
+GPIO.setup( motor_in3, GPIO.OUT )
+GPIO.setup( motor_in4, GPIO.OUT )
+
+GPIO.output( motor_in1, GPIO.LOW )
+GPIO.output( motor_in2, GPIO.LOW )
+GPIO.output( motor_in3, GPIO.LOW )
+GPIO.output( motor_in4, GPIO.LOW )
+motor_pins = [motor_in1, motor_in2, motor_in3, motor_in4]
+
+# loading model for prediction
+pred.load_model("models/lrmodel_v3_trainset_v4.pkl")
+
+
 log_file_loc = "/home/pi/log/"
 
+sensor_status_path = '/home/pi/code/raspi/4/persist_sensor_status.txt'
 
 
 
@@ -56,6 +100,8 @@ def main():
 	dht11_sensor = dht11.DHT11(pin = dht11_pin)
 	prev_temperature = 26.8
 	prev_humidity = 78.0
+	
+	reset_motor()
 		
 	
 	try:
@@ -64,10 +110,6 @@ def main():
 		
 		while True:
 			ir_output = GPIO.input(ir_pin)
-			ir_status = 'Object detected'
-
-			if ir_output:
-				ir_status = 'Surroundings clear'
 
 			ultrasonic_data = get_distance()
 			
@@ -92,7 +134,7 @@ def main():
 						, temperature_key: temperature
 						, humidity_key: humidity}
 			
-			output = compute_led_intensity(sensor_data)
+			output = decide(sensor_data)
 			
 			headcount = 0
 			
@@ -115,12 +157,65 @@ def main():
 		logfile.close()
 
 
-# install adafruit lib before running it
+
+
+def reset_motor():
+	print("~~~~ resetting windows blinds to 0° ...")
+	motor_angular_displacement = 0
+	
+	with open(sensor_status_path, 'r') as fileHandler:
+		motor_angular_displacement = int(fileHandler.read())
+	
+	if motor_angular_displacement > 0:
+		with open(sensor_status_path, 'w') as fileHandler:
+			fileHandler.write('0')
+		run_motor(motor_angular_displacement, False)
+
+
+def decide(sensor_data):
+	rotate_motor(sensor_data[external_ldr_key])
+	output = compute_intensity_and_postprocess(sensor_data)
+	return output
+
+
+
+def compute_intensity_and_postprocess(sensor_data):
+	output = compute_led_intensity(sensor_data)
+	
+	output = int(round(((output - min_ai_luminosity) * 100) / (max_ai_luminosity - min_ai_luminosity)))
+	
+	if output > 100:
+		output = 100
+	elif: output < 0:
+		output = 0
+	
+	return output
+
+
+
+def rotate_motor(external_luminosity):
+	motor_angular_displacement = int((90 * external_luminosity) / 100)
+	
+	with open(sensor_status_path, 'r') as fileHandler:
+		prev_motor_angular_displacement = int(fileHandler.read())
+	
+	diff = abs(motor_angular_displacement - prev_motor_angular_displacement)
+	
+	if diff >= 10:
+		run_motor(diff, motor_angular_displacement > prev_motor_angular_displacement)
+		
+		with open(sensor_status_path, 'w') as fileHandler:
+			fileHandler.write(str(motor_angular_displacement))
+
+
+
 def measure_temperature_humidity(dht11_sensor):
 	result = dht11_sensor.read()
 	humidity, temperature = result.humidity, result.temperature
 	
 	return temperature, humidity
+
+
 
 def ldr(ldr_pin):
 	GPIO.setup(ldr_pin, GPIO.OUT)
@@ -150,7 +245,44 @@ def ldr(ldr_pin):
 	scaled_value = round(scaled_value, 2)
 	
 	return scaled_value
+
+
+
+def motor_cleanup():
+	GPIO.output( motor_in1, GPIO.LOW )
+	GPIO.output( motor_in2, GPIO.LOW )
+	GPIO.output( motor_in3, GPIO.LOW )
+	GPIO.output( motor_in4, GPIO.LOW )
+
+
+
+def run_motor(angle, direction):
+	motor_step_counter = 0
 	
+	#	4096 steps is 360° <=> 5.625*(1/64) per step,
+	step_count = int(angle * 4096 / 360)
+	
+	try:
+		for i in range(step_count):
+			for pin in range(0, len(motor_pins)):
+				GPIO.output(motor_pins[pin], step_sequence[motor_step_counter][pin])
+			
+			if direction == True: # anticlockwise
+				motor_step_counter = (motor_step_counter - 1) % 8
+			elif direction == False: # clockwise
+				motor_step_counter = (motor_step_counter + 1) % 8
+			else:
+				print("direction must be True / False only. Other value was provided.")
+				
+				break
+			
+			time.sleep(step_sleep)
+	 
+	except KeyboardInterrupt:
+		pass
+	finally:
+		motor_cleanup()
+
 
 
 def initialise_log():
@@ -166,7 +298,7 @@ def initialise_log():
 		logfile.write("Timestamp\tIR Status\tUltrasonic Status\tInternal Incident Radiation\tExternal Incident Radiation\tTemperature\tHumidity\tHeadcount\tBrightness Level\n")
 		
 	return logfile
-	
+
 
 def normalise_brightness(level):
 	if level > 100:
@@ -184,8 +316,8 @@ def dim_led(pwm, brightness, prev_brightness):
 		time.sleep(sleep_time_high)
 		return
 	
-	brightness = normalise_brightness(brightness)
-	prev_brightness = normalise_brightness(prev_brightness)
+	brightness = int(round(normalise_brightness(brightness), 0))
+	prev_brightness = int(round(normalise_brightness(prev_brightness), 0))
 	
 	transition_interval = brightening_interval
 	
@@ -196,26 +328,27 @@ def dim_led(pwm, brightness, prev_brightness):
 	stay_interval = transition_interval * 1.0 / luminosity_steps
 	step = int(delta * 1.0 / luminosity_steps)
 	
-	if step == 0:
-		if delta < 0:
-			step = -1
-		else:
-			step = 1
-		stay_interval = step * 1.0 / delta
-	
-	brightness += step
-	
-	if brightness > 100:
-		brightness = 101
-	
-	for i in range(prev_brightness, brightness, step):
-		pwm.ChangeDutyCycle(i)
-		time.sleep(stay_interval)
+	if delta != 0:
+		if step == 0:
+			if delta < 0:
+				step = -1
+			else:
+				step = 1
+			stay_interval = step * 1.0 / delta
 		
-	
+		brightness += step
+		
+		if brightness > 100:
+			brightness = 101
+		
+		for i in range(prev_brightness, brightness, step):
+			pwm.ChangeDutyCycle(i)
+			time.sleep(stay_interval)
+
+
 
 def get_distance():
-	#	Initialise distance and pin
+	#   Initialise distance and pin
 	distance = -1
 	GPIO.output(ultrasonic_trig_pin, False)
 	time.sleep(sensor_stabilise_time)
@@ -243,29 +376,36 @@ def compute_led_intensity(inputs):
 	if ir_key in inputs:
 		inputs[ir_key] = not inputs[ir_key]
 
-	# we require boolean for now
-	if ultrasonic_key in inputs:
-		inputs[ultrasonic_key] = inputs[ultrasonic_key] <= far_away_threshold
+	# When the ultrasonic_key sensor doesn't work, we set the default value to be 25000 mm
+	# This is set to 25000 mm assuming no object is detected by the sensor
+	if ultrasonic_key not in inputs:
+		inputs[ultrasonic_key] = 25000
 
 	brightness_level = call_model(inputs)
 
 	return brightness_level
 
 
-
 def call_model(inputs):
 	brightness_level = 10
-	
-	if ultrasonic_key not in inputs:
-		inputs[ultrasonic_key] = False
 
 	if ir_key not in inputs:
-			inputs[ir_key] = False
-
-	detected = (inputs[ultrasonic_key] or inputs[ir_key])
+		inputs[ir_key] = 1 # set to no object detection by default when the IR sensor stops working
+						   # which means that the light intensity would remain low when human pass through
+						   # triggering a suspicion that something has failed
 	
-	if detected:
-		brightness_level = 100
+	# detected = (inputs[ultrasonic_key] or inputs[ir_key])
+	if internal_ldr_key not in inputs:
+		inputs[internal_ldr_key] = 50 # assume the brightness level at 50 when the ldr sensor stops working
+
+
+
+	current_time = datetime.now().strftime("%H:%M")
+	
+	brightness_level = pred.infer(inputs[internal_ldr_key], inputs[ir_key], 
+								  inputs[ultrasonic_key], current_time)
+	#   if detected:
+	#	   brightness_level = 100
 
 	return brightness_level
 
