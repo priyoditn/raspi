@@ -252,7 +252,7 @@ def compute_led_intensity(inputs):
 	return brightness_level
 
 
-# TODO: @arunjeyapal: please add your model wrapper here. Please take a look at log_samples folder for preprocessing of data
+
 def call_model(inputs):
 	brightness_level = 10
 	
