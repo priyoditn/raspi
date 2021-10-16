@@ -4,14 +4,14 @@
 import RPi.GPIO as GPIO
 import time
  
-in1 = 11
-in2 = 12
-in3 = 13
-in4 = 15
+motor_in1 = 11
+motor_in2 = 12
+motor_in3 = 13
+motor_in4 = 35
 
 step_sleep = 0.004 #	ms
 
-degrees = 90
+degrees = 45
 
 #	4096 steps is 360° <=> 5.625*(1/64) per step,
 step_count = int(degrees * 4096 / 360)
@@ -31,48 +31,45 @@ step_sequence = [
  
 # setting up
 GPIO.setmode( GPIO.BOARD )
-GPIO.setup( in1, GPIO.OUT )
-GPIO.setup( in2, GPIO.OUT )
-GPIO.setup( in3, GPIO.OUT )
-GPIO.setup( in4, GPIO.OUT )
- 
+GPIO.setup( motor_in1, GPIO.OUT )
+GPIO.setup( motor_in2, GPIO.OUT )
+GPIO.setup( motor_in3, GPIO.OUT )
+GPIO.setup( motor_in4, GPIO.OUT )
 
-GPIO.output( in1, GPIO.LOW )
-GPIO.output( in2, GPIO.LOW )
-GPIO.output( in3, GPIO.LOW )
-GPIO.output( in4, GPIO.LOW )
- 
- 
-motor_pins = [in1,in2,in3,in4]
-motor_step_counter = 0 ;
- 
- 
-def cleanup():
-	GPIO.output( in1, GPIO.LOW )
-	GPIO.output( in2, GPIO.LOW )
-	GPIO.output( in3, GPIO.LOW )
-	GPIO.output( in4, GPIO.LOW )
+GPIO.output( motor_in1, GPIO.LOW )
+GPIO.output( motor_in2, GPIO.LOW )
+GPIO.output( motor_in3, GPIO.LOW )
+GPIO.output( motor_in4, GPIO.LOW )
+
+motor_pins = [motor_in1, motor_in2, motor_in3, motor_in4]
+
+
+def motor_cleanup():
+	GPIO.output( motor_in1, GPIO.LOW )
+	GPIO.output( motor_in2, GPIO.LOW )
+	GPIO.output( motor_in3, GPIO.LOW )
+	GPIO.output( motor_in4, GPIO.LOW )
 	GPIO.cleanup()
  
-
-try:
-	i = 0
-	for i in range(step_count):
-		for pin in range(0, len(motor_pins)):
-			GPIO.output( motor_pins[pin], step_sequence[motor_step_counter][pin] )
-		if anticlockwise == True:
-			motor_step_counter = (motor_step_counter - 1) % 8
-		elif anticlockwise ==False:
-			motor_step_counter = (motor_step_counter + 1) % 8
-		else:
-			print( "direction must be True / False" )
-			cleanup()
-			exit( 1 )
-		time.sleep( step_sleep )
+def run_motor():
+	motor_step_counter = 0 ;
+	try:
+		i = 0
+		for i in range(step_count):
+			for pin in range(0, len(motor_pins)):
+				GPIO.output( motor_pins[pin], step_sequence[motor_step_counter][pin] )
+			if anticlockwise == True:
+				motor_step_counter = (motor_step_counter - 1) % 8
+			elif anticlockwise ==False:
+				motor_step_counter = (motor_step_counter + 1) % 8
+			else:
+				print( "direction must be True / False only. Other value was provided." )
+				motor_cleanup()
+			time.sleep( step_sleep )
+	 
+	except KeyboardInterrupt:
+		pass
+	finally:
+		motor_cleanup()
  
-except KeyboardInterrupt:
-	cleanup()
-	exit( 1 )
- 
-cleanup()
-exit( 0 )
+run_motor()

@@ -9,6 +9,12 @@ import math
 
 sleep_time_high = 0.5
 
+#	motor pins
+motor_in1 = 11
+motor_in2 = 12
+motor_in3 = 13
+motor_in4 = 35
+
 led_pin = 12
 ir_pin = 16
 ultrasonic_trig_pin = 38
@@ -35,6 +41,22 @@ luminosity_steps = 100
 ldr_max = 700
 ldr_min = 90
 
+#	motor params
+step_sleep = 0.004 #	ms
+
+# For motor 28BYJ-48 and driver ULN2003
+step_sequence = [
+					[1,0,0,1],
+					[1,0,0,0],
+					[1,1,0,0],
+					[0,1,0,0],
+					[0,1,1,0],
+					[0,0,1,0],
+					[0,0,1,1],
+					[0,0,0,1]]
+
+#	--------------------
+
 GPIO.setmode(GPIO.BOARD)
 GPIO.setup(led_pin, GPIO.OUT)
 GPIO.setup(ir_pin, GPIO.IN)
@@ -42,8 +64,20 @@ GPIO.setup(ultrasonic_echo_pin, GPIO.IN)
 GPIO.setup(ultrasonic_trig_pin, GPIO.OUT)
 # LDR pin setup occurs inside the ldr() method
 
+GPIO.setup( motor_in1, GPIO.OUT )
+GPIO.setup( motor_in2, GPIO.OUT )
+GPIO.setup( motor_in3, GPIO.OUT )
+GPIO.setup( motor_in4, GPIO.OUT )
+
+GPIO.output( motor_in1, GPIO.LOW )
+GPIO.output( motor_in2, GPIO.LOW )
+GPIO.output( motor_in3, GPIO.LOW )
+GPIO.output( motor_in4, GPIO.LOW )
+motor_pins = [motor_in1, motor_in2, motor_in3, motor_in4]
+
 log_file_loc = "/home/pi/log/"
 
+sensor_status_path = '/home/pi/code/raspi/4/persist_sensor_status.txt'
 
 
 
@@ -56,6 +90,8 @@ def main():
 	dht11_sensor = dht11.DHT11(pin = dht11_pin)
 	prev_temperature = 26.8
 	prev_humidity = 78.0
+	
+	reset_motor()
 		
 	
 	try:
@@ -92,7 +128,7 @@ def main():
 						, temperature_key: temperature
 						, humidity_key: humidity}
 			
-			output = compute_led_intensity(sensor_data)
+			output = decide(sensor_data)
 			
 			headcount = 0
 			
@@ -115,12 +151,49 @@ def main():
 		logfile.close()
 
 
-# install adafruit lib before running it
+
+def reset_motor():
+	print("~~~~ resetting windows blinds to 0 angle ...")
+	motor_angular_displacement = 0
+	
+	with open(sensor_status_path, 'r') as fileHandler:
+		motor_angular_displacement = int(fileHandler.read())
+	
+	if motor_angular_displacement > 0:
+		with open(sensor_status_path, 'w') as fileHandler:
+			fileHandler.write('0')
+		run_motor(motor_angular_displacement, False)
+
+
+def decide(sensor_data):
+	motor_angular_displacement = int((90 * sensor_data[external_ldr_key]) / 100)
+	
+	with open(sensor_status_path, 'r') as fileHandler:
+		prev_motor_angular_displacement = int(fileHandler.read())
+		
+	print(f'New Angle: {motor_angular_displacement}\t previous angle: {prev_motor_angular_displacement}')
+		
+	diff = abs(motor_angular_displacement - prev_motor_angular_displacement)
+	
+	if diff >= 10:
+		run_motor(diff, motor_angular_displacement > prev_motor_angular_displacement)
+			
+		with open(sensor_status_path, 'w') as fileHandler:
+			fileHandler.write(str(motor_angular_displacement))
+	
+	output = compute_led_intensity(sensor_data)
+	
+	return output
+
+
+
 def measure_temperature_humidity(dht11_sensor):
 	result = dht11_sensor.read()
 	humidity, temperature = result.humidity, result.temperature
 	
 	return temperature, humidity
+
+
 
 def ldr(ldr_pin):
 	GPIO.setup(ldr_pin, GPIO.OUT)
@@ -151,6 +224,43 @@ def ldr(ldr_pin):
 	
 	return scaled_value
 	
+
+
+def motor_cleanup():
+	GPIO.output( motor_in1, GPIO.LOW )
+	GPIO.output( motor_in2, GPIO.LOW )
+	GPIO.output( motor_in3, GPIO.LOW )
+	GPIO.output( motor_in4, GPIO.LOW )
+
+
+
+def run_motor(angle, direction):
+	motor_step_counter = 0
+	
+	#	4096 steps is 360° <=> 5.625*(1/64) per step,
+	step_count = int(angle * 4096 / 360)
+	
+	try:
+		i = 0
+		
+		for i in range(step_count):
+			for pin in range(0, len(motor_pins)):
+				GPIO.output(motor_pins[pin], step_sequence[motor_step_counter][pin])
+			if direction == True: # anticlockwise
+				motor_step_counter = (motor_step_counter - 1) % 8
+			elif direction == False: # clockwise
+				motor_step_counter = (motor_step_counter + 1) % 8
+			else:
+				print("direction must be True / False only. Other value was provided.")
+				motor_cleanup()
+			
+			time.sleep(step_sleep)
+	 
+	except KeyboardInterrupt:
+		pass
+	finally:
+		motor_cleanup()
+
 
 
 def initialise_log():
