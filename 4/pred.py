@@ -10,10 +10,12 @@ def load_model(model_path):
     lr_model = pickle.load(open(model_path, 'rb'))
 
 
-def infer(light_luminosity, time_of_day, proximity):
+def infer(light_luminosity, ir_status, ultra_sonic_status, time_of_day):
     prediction = lr_model.predict(np.array([np.array([float(light_luminosity), 
+                                                      float(ir_status),
+                                                      float(ultra_sonic_status),
                                                       float(time_of_day.replace(":","")), 
-                                                      float(proximity)])]))
+                                                      ])]))
     return prediction.tolist()[0]
 
 
