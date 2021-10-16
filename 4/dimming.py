@@ -78,7 +78,8 @@ GPIO.output( motor_in4, GPIO.LOW )
 motor_pins = [motor_in1, motor_in2, motor_in3, motor_in4]
 
 # loading model for prediction
-pred.load_model("models/lrmodel_v3_trainset_v4.pkl")
+pred.load_model("models/lrmodel_v2_trainset_v3.pkl")
+#pred.load_model("models/lrmodel_v3_trainset_v4.pkl")
 
 
 log_file_loc = "/home/pi/log/"
@@ -383,7 +384,10 @@ def call_model(inputs):
     current_time = datetime.now().strftime("%H:%M")
 
     brightness_level = pred.infer(inputs[internal_ldr_key], inputs[ir_key], 
-                                  inputs[ultrasonic_key], current_time)
+                              inputs[ultrasonic_key], current_time)
+    
+    #brightness_level = pred.infer(inputs[internal_ldr_key], inputs[ir_key], 
+    #                              inputs[ultrasonic_key], current_time)
     #   if detected:
     #       brightness_level = 100
 
