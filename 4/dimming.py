@@ -138,8 +138,8 @@ def main():
 						, ultrasonic_key : ultrasonic_data
 						, internal_ldr_key : internal_ldr_data
 						, external_ldr_key : external_ldr_data
-						, temperature_key: temperature
-						, humidity_key: humidity}
+						, temperature_key : temperature
+						, humidity_key : humidity}
 			
 			output = decide(sensor_data)
 			
@@ -181,7 +181,7 @@ def reset_motor():
 
 
 def decide(sensor_data):
-	rotate_motor(sensor_data[external_ldr_key])
+	rotate_motor(sensor_data[internal_ldr_key])
 	output = compute_intensity_and_postprocess(sensor_data)
 	return output
 
@@ -279,7 +279,7 @@ def run_motor(angle, direction):
 				break
 			
 			time.sleep(step_sleep)
-	 
+	
 	except KeyboardInterrupt:
 		pass
 	finally:
