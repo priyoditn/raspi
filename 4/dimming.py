@@ -1,14 +1,17 @@
 import dht11
 import RPi.GPIO as GPIO
 import time
-import pred
+#import pred
 from datetime import date, datetime
 from pathlib import Path
 import math
+import pickle
+import numpy as np
 
 
 
 sleep_time_high = 0.5
+model_filename = r'/home/pi/code/raspi/4/models/zing_brightness_v0.pkl'
 
 #	motor pins
 motor_in1 = 11
@@ -70,20 +73,21 @@ GPIO.setup(ultrasonic_trig_pin, GPIO.OUT)
 # LDR pin setup occurs inside the ldr() method
 
 
-GPIO.setup( motor_in1, GPIO.OUT )
-GPIO.setup( motor_in2, GPIO.OUT )
-GPIO.setup( motor_in3, GPIO.OUT )
-GPIO.setup( motor_in4, GPIO.OUT )
+GPIO.setup(motor_in1, GPIO.OUT)
+GPIO.setup(motor_in2, GPIO.OUT)
+GPIO.setup(motor_in3, GPIO.OUT)
+GPIO.setup(motor_in4, GPIO.OUT)
 
-GPIO.output( motor_in1, GPIO.LOW )
-GPIO.output( motor_in2, GPIO.LOW )
-GPIO.output( motor_in3, GPIO.LOW )
-GPIO.output( motor_in4, GPIO.LOW )
+GPIO.output(motor_in1, GPIO.LOW)
+GPIO.output(motor_in2, GPIO.LOW)
+GPIO.output(motor_in3, GPIO.LOW)
+GPIO.output(motor_in4, GPIO.LOW)
 motor_pins = [motor_in1, motor_in2, motor_in3, motor_in4]
 
 # loading model for prediction
-pred.load_model("models/lrmodel_v3_trainset_v4.pkl")
+#pred.load_model("models/lrmodel_v3_trainset_v4.pkl")
 
+brightness_model = pickle.load(open(model_filename, 'rb'))
 
 log_file_loc = "/home/pi/log/"
 
@@ -180,14 +184,7 @@ def decide(sensor_data):
 
 
 def compute_intensity_and_postprocess(sensor_data):
-	output = compute_led_intensity(sensor_data)
-	
-	output = int(round(((output - min_ai_luminosity) * 100) / (max_ai_luminosity - min_ai_luminosity)))
-	
-	if output > 100:
-		output = 100
-	elif output < 0:
-		output = 0
+	output = predict_brightness(sensor_data)
 	
 	return output
 
@@ -386,31 +383,96 @@ def compute_led_intensity(inputs):
 	return brightness_level
 
 
-def call_model(inputs):
-	brightness_level = 10
+#def call_model(inputs):
+#	brightness_level = 10
 
-	if ir_key not in inputs:
-		inputs[ir_key] = 1 # set to no object detection by default when the IR sensor stops working
+#	if ir_key not in inputs:
+#		inputs[ir_key] = 1 # set to no object detection by default when the IR sensor stops working
 						   # which means that the light intensity would remain low when human pass through
 						   # triggering a suspicion that something has failed
 	
 	# detected = (inputs[ultrasonic_key] or inputs[ir_key])
-	if internal_ldr_key not in inputs:
-		inputs[internal_ldr_key] = 50 # assume the brightness level at 50 when the ldr sensor stops working
+#	if internal_ldr_key not in inputs:
+#		inputs[internal_ldr_key] = 50 # assume the brightness level at 50 when the ldr sensor stops working
 
 
 
-	current_time = datetime.now().strftime("%H:%M")
+#	current_time = datetime.now().strftime("%H:%M")
 	
-	brightness_level = pred.infer(inputs[internal_ldr_key], inputs[ir_key], 
-								  inputs[ultrasonic_key], current_time)
+#	brightness_level = pred.infer(inputs[internal_ldr_key], inputs[ir_key], 
+#								  inputs[ultrasonic_key], current_time)
 	#   if detected:
 	#	   brightness_level = 100
 
-	return brightness_level
+#	return brightness_level
+
+def predict_brightness(inputs):
+	output = 10
+	
+	preprocessed_sensor_data = preprocess_sensor_data_for_brightness(inputs)
+	
+	brightness_level = brightness_model.predict(preprocessed_sensor_data)
+	
+	if brightness_level[0] <= 1:
+		output = 10
+	else:
+		output = brightness_level[0] * 20
+	
+	output = int(round(output))
+
+	if output > 100:
+		output = 100
+	elif output < 0:
+		output = 0
+	
+	return output
 
 
+def preprocess_sensor_data_for_brightness(inputs):
+	if ir_key not in inputs:
+		inputs[ir_key] = 1 
+	
+	if internal_ldr_key not in inputs:
+		inputs[internal_ldr_key] = 50
+	
+	if ultrasonic_key not in inputs:
+		inputs[ultrasonic_key] = 500
+	
+	external_luminosity = inputs[internal_ldr_key]
 
+	if external_luminosity <= 10:
+		external_luminosity_level = 0 # something like pitch black night
+	elif external_luminosity <= 20:
+		external_luminosity_level = 1 # 4 - 6 AM
+	elif external_luminosity <= 40:
+		external_luminosity_level = 2 # 6 - 8 AM
+	elif external_luminosity <= 60:
+		external_luminosity_level = 3 # 8 - 10 AM
+	elif external_luminosity <= 80:
+		external_luminosity_level = 4 # 10 - 12 A/PM
+	else:
+		external_luminosity_level = 5 # 12 - 2 PM
+	
+	distance = inputs[ultrasonic_key] # in millimeters
+
+	if distance <= 200:
+		distance_level = 0
+	elif distance <= 300:
+		distance_level = 1
+	elif distance <= 400:
+		distance_level = 2
+	elif distance <= 500:
+		distance_level = 3
+	elif distance <= 600:
+		distance_level = 4
+	else:
+		distance_level = 5
+	
+	sensor_data = [external_luminosity_level, distance_level, inputs[ir_key]]
+	sensor_data_arr = np.array(sensor_data)
+	sensor_data_arr = sensor_data_arr.reshape(1, -1)
+	
+	return sensor_data_arr
 
 
 main()

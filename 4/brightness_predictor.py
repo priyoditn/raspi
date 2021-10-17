@@ -55,7 +55,7 @@ print(f"y from regressor = {y}")
 #print(f"y after rounding = {y}")
 output = 10
 
-if y <= 1:
+if y[0] <= 1:
     output = 10
 else:
     output = y[0] * 20
