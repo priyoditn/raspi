@@ -48,7 +48,7 @@ else:
 test_row = [external_luminosity_level, distance_level, row["IR Status"]]
 test_row = np.array(test_row)
 test_row = test_row.reshape(1, -1)
-
+model = pickle.load(open(filename, 'rb'))
 y = model.predict(test_row)
 print(f"y from regressor = {y}")
 #y = int(round(y[0]))
