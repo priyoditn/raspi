@@ -1,0 +1,54 @@
+Welcome to Zing, the Raspberry Pi based system which executes AI on the edge paradigm to control your mall environment while keeping the costs optimised.
+
+Zing is the code name for this project.
+This project takes care of the indoor and outdoor environment control by employing AI to decide the flow of resources.
+
+About the code:
+1. The code file name is *dimming.py*
+2. The persisting file, where dimming.py writes its values is *persist_sensor_status.txt*. Do not write anything to this file.
+3. AI file is *zing_brightness_v0.pkl*
+
+Prinicipal apparatus required:
+Only the primary components or apparatus are mentioned here, minor elements like capacitors, resistors, LCD screen, Arduino Uno, Op Amps, transistors, ICs, Fan hat of Raspberry Pi 4 (RPi) are omitted to avoid confusion. The circuit is discussed in detail in the slides accompanied with this document.
+
+1. RPi 4 B+, 2/4 GB RAM (it has 40 GPIO pins)
+2. Infrared (IR) sensor
+3. Ultrasonic Sensor
+4. Light Emitting Diode (LED) 12 volts (without driver)
+5. Stepper Motor 28BYJ - 48.
+6. Light Dependent Resistor (LDR) to measure light.
+7. Adaptors for: 1. 12 volts and 2. Raspberry Pi.
+
+Python packages used:
+1. Rpi.GPIO 0.7.0
+2. numpy 1.16.2
+3. sklearn
+4. pickle 0.24.0
+5. Python language version 3.7.2
+
+How to run the code:
+1. Copy all three files stated above into a directory in a RPi.
+
+This code will run on an RPi because of the low level GPIO pin calls which are done from the code and are directly affecting the CPU. The Broadcom Cortex A-72 microprocessor has a different architecture than the regular Intel or AMD processors which have x64 architecture, hence how this code will react on these microprocessors is unknown at this point. To be accurate, Broadcom Cortex A-72 follows ARM Cortex A-72 microarhitecture implementing the ARMv8-A 64-bit architecture while Intel chipset follows Intel's Nehalem microarchitecture.
+
+2. The main method is called in dimming.py, line number 505, which is the start of the code.
+
+3. the body itself of main() method starts from line number 103.
+
+4. The model is called in decide(sensor_data) method in line number 185
+
+5. Update the file location of model at the line number 15
+
+6. Update the location of logs at the line number 96. This system writes one file of log everyday, and one row per second.
+
+7. Update the location of sensor data persisting file at the line number 98.
+
+8. install the packages mentioned above.
+
+9. run the code by typing: python3 dimming.py
+
+10. if any obstacle is sensed by the sensor, the lights will dim or brighten depending upon the distance of the obstacle, current brightness of the surroundings and whether IR sensor too detects any obstacle or not.
+
+11. the motor would turn clockwise (to indicate opening of window blinds) or anticlockwise (to indicate closing of window blind) based on the brightness.
+
+12. DHT11 sensor, used for temperature and humidity would be used to sense temperature and humidity variation and will send the signal to the air conditioner (AC) to increase or decrease the air exchange rate, humidity, and temperature.
